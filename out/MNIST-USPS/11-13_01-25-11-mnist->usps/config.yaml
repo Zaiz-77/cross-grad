@@ -1,0 +1,9 @@
+criterion: CrossEntropyLoss
+device: cuda
+lr: 0.001
+model: SimpleDigitModel
+num_epochs: 10
+optimizer: SGD
+src_train: mnist
+tar_test: usps
+tar_train: usps
