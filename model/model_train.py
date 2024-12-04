@@ -181,7 +181,7 @@ def one_exp(model, src_train, tar_train, criterion, optimizer, device, num_epoch
     src_domain = src_train.domain
     tar_domain = tar_test.domain
     timestamp = datetime.now().strftime('%m-%d_%H-%M-%S')
-    out_dir = os.path.join('out', f'{src_name}-{tar_name}', f'{timestamp}-{src_domain}->{tar_domain}')
+    out_dir = os.path.join('../out', f'{src_name}-{tar_name}', f'{timestamp}-{src_domain}->{tar_domain}')
     os.makedirs(out_dir, exist_ok=True)
 
     config = {

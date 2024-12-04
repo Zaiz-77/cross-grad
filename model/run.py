@@ -27,7 +27,7 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
-    num_epochs = 10
+    num_epochs = 100
     # one_exp(model, mnist_train, usps_train, criterion, optimizer, device, num_epochs, usps_test)
     # one_exp(model, office31_train[src], office31_train[tar], criterion, optimizer, device, num_epochs,
     #         office31_test[tar])
