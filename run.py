@@ -31,7 +31,5 @@ if __name__ == '__main__':
     # one_exp(model, mnist_train, usps_train, criterion, optimizer, device, num_epochs, usps_test)
     # one_exp(model, office31_train[src], office31_train[tar], criterion, optimizer, device, num_epochs,
     #         office31_test[tar])
-    office_home_test[tar].shuffle = False
-    office_home_train[tar].shuffle = True
-    one_exp(model, office_home_train[src], office_home_test[tar], criterion, optimizer, device, num_epochs,
-            office_home_train[tar])
+    one_exp(model, office_home_train[src], office_home_train[tar], criterion, optimizer, device, num_epochs,
+            office_home_test[tar])
