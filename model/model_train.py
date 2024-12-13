@@ -66,7 +66,25 @@ def save_config(config, out_dir):
 def train_single(model, train_loader, test_loader, criterion, optimizer, device, num_epochs):
     scaler = GradScaler()
 
+    # for epoch in range(num_epochs):
+    #     model.train()
+    #     for x, y in train_loader:
+    #         x = x.to(device, non_blocking=True)
+    #         y = y.to(device, non_blocking=True)
+    #
+    #         with autocast():
+    #             optimizer.zero_grad(set_to_none=True)
+    #             y_hat = model(x)
+    #             loss = criterion(y_hat, y)
+    #
+    #         scaler.scale(loss).backward()
+    #         scaler.step(optimizer)
+    #         scaler.update()
+
     test_accuracies = []
+    # for name, param in model.named_parameters():
+    #     if "backbone.fc" not in name:
+    #         param.requires_grad = False
 
     for epoch in range(num_epochs):
         model.train()

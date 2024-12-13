@@ -17,21 +17,19 @@ if __name__ == '__main__':
     # usps_train, usps_test = get_usps_dataloader()
     # office31_train, office31_test = get_office31_loaders()
     office_home_train, office_home_test = get_office_home_loaders()
-    src = 'Clipart'
-    tar = 'Art'
+    src = 'Product'
+    tar = 'RealWorld'
 
     model = models['office_home']
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9)
 
-    num_epochs = 100
+    num_epochs = 10
     # one_exp(model, mnist_train, usps_train, criterion, optimizer, device, num_epochs, usps_test)
-    # one_exp(model, office31_train[src], office31_train[tar], criterion, optimizer, device, num_epochs,
-    #         office31_test[tar])
-    office_home_test[tar].shuffle = False
-    office_home_train[tar].shuffle = True
+    # one_exp(model, office31_train[src], office31_test[tar], criterion, optimizer, device, num_epochs,
+    #         office31_train[tar])
     one_exp(model, office_home_train[src], office_home_test[tar], criterion, optimizer, device, num_epochs,
             office_home_train[tar])
