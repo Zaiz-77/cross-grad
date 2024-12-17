@@ -9,10 +9,9 @@ class OfficeModel(nn.Module):
 
         num_last = self.backbone.fc.in_features
         self.backbone.fc = nn.Sequential(
-            nn.Linear(num_last, 256),
-            nn.BatchNorm1d(256),
+            nn.Linear(num_last, 512),
             nn.ReLU(),
-            nn.Linear(256, num_classes)
+            nn.Linear(512, num_classes)
         )
 
     def forward(self, x):
