@@ -93,7 +93,7 @@ def get_office31_loaders(batch_size=64, num_workers=8, train_ratio=0.8):
     return train_loaders, test_loaders
 
 
-def get_office_home_loaders(batch_size=64, num_workers=8, train_ratio=0.8):
+def get_office_home_loaders(batch_size=36, num_workers=8, train_ratio=0.8):
     data_transforms = transforms.Compose([
         transforms.Resize([256, 256]),
         transforms.RandomHorizontalFlip(),
