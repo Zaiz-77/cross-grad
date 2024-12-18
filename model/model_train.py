@@ -1,3 +1,4 @@
+import math
 import os
 import random
 from datetime import datetime
@@ -147,98 +148,15 @@ def train_single(model, train_loader, test_loader, criterion, optimizer, device,
     return test_accuracies
 
 
-def train_joint(model, src_train, tar_train, criterion, optimizer, device, num_epochs, tar_test):
-    scaler = GradScaler()
-    test_accuracies = []
-    for epoch in range(num_epochs):
-        cnt = 0
-        model.train()
-        src_iter = iter(src_train)
-        tar_iter = iter(tar_train)
-        step_per_epoch = len(src_train)
-
-        p_bar = tqdm(total=step_per_epoch, desc=f'Epoch {epoch + 1}/{num_epochs}')
-
-        for step in range(step_per_epoch):
-            try:
-                src_x, src_y = next(src_iter)
-            except StopIteration:
-                src_iter = iter(src_train)
-                src_x, src_y = next(src_iter)
-
-            try:
-                tar_x, tar_y = next(tar_iter)
-            except StopIteration:
-                tar_iter = iter(tar_train)
-                tar_x, tar_y = next(tar_iter)
-
-            src_x = src_x.to(device, non_blocking=True)
-            src_y = src_y.to(device, non_blocking=True)
-            tar_x = tar_x.to(device, non_blocking=True)
-            tar_y = tar_y.to(device, non_blocking=True)
-
-            with autocast():
-                optimizer.zero_grad(set_to_none=True)
-                src_outs = model(src_x)
-                src_loss = criterion(src_outs, src_y)
-
-            scaler.scale(src_loss).backward(retain_graph=True)
-            src_grads = [p.grad.detach().clone() for p in model.parameters()]
-
-            with autocast():
-                optimizer.zero_grad(set_to_none=True)
-                tar_outs = model(tar_x)
-                tar_loss = criterion(tar_outs, tar_y)
-
-            scaler.scale(tar_loss).backward()
-            tar_grads = [p.grad.detach().clone() for p in model.parameters()]
-
-            cos_value = compute_gradient_cosine(src_grads, tar_grads)
-            if cos_value > 0:
-                final_grads = [g1 + g2 for g1, g2 in zip(src_grads, tar_grads)]
-            else:
-                cnt += 1
-                _, v = decompose_gradient(src_grads, tar_grads)
-                final_grads = [g1 + g2 for g1, g2 in zip(v, tar_grads)]
-
-            for param, grad in zip(model.parameters(), final_grads):
-                param.grad = grad
-
-            scaler.step(optimizer)
-            scaler.update()
-
-            p_bar.set_postfix({
-                'ratio': f'{100 * cnt / step_per_epoch:.2f}%',
-                'src_loss': f'{src_loss.item():.4f}',
-                'tar_loss': f'{tar_loss.item():.4f}'
-            })
-            p_bar.update()
-
-        p_bar.close()
-        test_accuracy, test_loss = test_acc(model, tar_test, criterion, device)
-        test_accuracies.append(test_accuracy)
-    return test_accuracies
-
-
 # def train_joint(model, src_train, tar_train, criterion, optimizer, device, num_epochs, tar_test):
 #     scaler = GradScaler()
 #     test_accuracies = []
-#
-#     alpha_0 = 0.7
-#     alpha_min = 0.1
-#
-#     T_max = 10
-#
 #     for epoch in range(num_epochs):
 #         cnt = 0
 #         model.train()
 #         src_iter = iter(src_train)
 #         tar_iter = iter(tar_train)
 #         step_per_epoch = len(src_train)
-#
-#         cosine_decay = 0.5 * (1 + math.cos(math.pi * epoch / T_max))
-#         alpha = alpha_min + (alpha_0 - alpha_min) * cosine_decay
-#         alpha = max(0.0, alpha)
 #
 #         p_bar = tqdm(total=step_per_epoch, desc=f'Epoch {epoch + 1}/{num_epochs}')
 #
@@ -278,11 +196,11 @@ def train_joint(model, src_train, tar_train, criterion, optimizer, device, num_e
 #
 #             cos_value = compute_gradient_cosine(src_grads, tar_grads)
 #             if cos_value > 0:
-#                 final_grads = [alpha * g1 + g2 for g1, g2 in zip(src_grads, tar_grads)]
+#                 final_grads = [g1 + g2 for g1, g2 in zip(src_grads, tar_grads)]
 #             else:
 #                 cnt += 1
 #                 _, v = decompose_gradient(src_grads, tar_grads)
-#                 final_grads = [alpha * g1 + g2 for g1, g2 in zip(v, tar_grads)]
+#                 final_grads = [g1 + g2 for g1, g2 in zip(v, tar_grads)]
 #
 #             for param, grad in zip(model.parameters(), final_grads):
 #                 param.grad = grad
@@ -293,8 +211,7 @@ def train_joint(model, src_train, tar_train, criterion, optimizer, device, num_e
 #             p_bar.set_postfix({
 #                 'ratio': f'{100 * cnt / step_per_epoch:.2f}%',
 #                 'src_loss': f'{src_loss.item():.4f}',
-#                 'tar_loss': f'{tar_loss.item():.4f}',
-#                 'alpha': f'{alpha:.4f}'
+#                 'tar_loss': f'{tar_loss.item():.4f}'
 #             })
 #             p_bar.update()
 #
@@ -302,6 +219,90 @@ def train_joint(model, src_train, tar_train, criterion, optimizer, device, num_e
 #         test_accuracy, test_loss = test_acc(model, tar_test, criterion, device)
 #         test_accuracies.append(test_accuracy)
 #     return test_accuracies
+
+
+def train_joint(model, src_train, tar_train, criterion, optimizer, device, num_epochs, tar_test):
+    scaler = GradScaler()
+    test_accuracies = []
+
+    alpha_0 = 0.5
+    alpha_min = 0.01
+
+    T_max = 32
+
+    for epoch in range(num_epochs):
+        cnt = 0
+        model.train()
+        src_iter = iter(src_train)
+        tar_iter = iter(tar_train)
+        step_per_epoch = len(src_train)
+
+        cosine_decay = 0.5 * (1 + math.cos(math.pi * epoch / T_max))
+        alpha = alpha_min + (alpha_0 - alpha_min) * cosine_decay
+        alpha = max(0.0, alpha)
+
+        p_bar = tqdm(total=step_per_epoch, desc=f'Epoch {epoch + 1}/{num_epochs}')
+
+        for step in range(step_per_epoch):
+            try:
+                src_x, src_y = next(src_iter)
+            except StopIteration:
+                src_iter = iter(src_train)
+                src_x, src_y = next(src_iter)
+
+            try:
+                tar_x, tar_y = next(tar_iter)
+            except StopIteration:
+                tar_iter = iter(tar_train)
+                tar_x, tar_y = next(tar_iter)
+
+            src_x = src_x.to(device, non_blocking=True)
+            src_y = src_y.to(device, non_blocking=True)
+            tar_x = tar_x.to(device, non_blocking=True)
+            tar_y = tar_y.to(device, non_blocking=True)
+
+            with autocast():
+                optimizer.zero_grad(set_to_none=True)
+                src_outs = model(src_x)
+                src_loss = criterion(src_outs, src_y)
+
+            scaler.scale(src_loss).backward(retain_graph=True)
+            src_grads = [p.grad.detach().clone() for p in model.parameters()]
+
+            with autocast():
+                optimizer.zero_grad(set_to_none=True)
+                tar_outs = model(tar_x)
+                tar_loss = criterion(tar_outs, tar_y)
+
+            scaler.scale(tar_loss).backward()
+            tar_grads = [p.grad.detach().clone() for p in model.parameters()]
+
+            cos_value = compute_gradient_cosine(src_grads, tar_grads)
+            if cos_value > 0:
+                final_grads = [alpha * g1 + g2 for g1, g2 in zip(src_grads, tar_grads)]
+            else:
+                cnt += 1
+                _, v = decompose_gradient(src_grads, tar_grads)
+                final_grads = [alpha * g1 + g2 for g1, g2 in zip(v, tar_grads)]
+
+            for param, grad in zip(model.parameters(), final_grads):
+                param.grad = grad
+
+            scaler.step(optimizer)
+            scaler.update()
+
+            p_bar.set_postfix({
+                'ratio': f'{100 * cnt / step_per_epoch:.2f}%',
+                'src_loss': f'{src_loss.item():.4f}',
+                'tar_loss': f'{tar_loss.item():.4f}',
+                'alpha': f'{alpha:.4f}'
+            })
+            p_bar.update()
+
+        p_bar.close()
+        test_accuracy, test_loss = test_acc(model, tar_test, criterion, device)
+        test_accuracies.append(test_accuracy)
+    return test_accuracies
 
 
 def one_exp(model, src_train, tar_train, criterion, optimizer, device, num_epochs, tar_test):
