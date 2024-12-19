@@ -23,6 +23,14 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
+def init():
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
+        print("CUDA cache cleared.")
+
+
 def compute_gradient_cosine(grad1, grad2):
     dot_product = sum((g1 * g2).sum() for g1, g2 in zip(grad1, grad2))
     norm1 = sqrt(sum((g * g).sum() for g in grad1))
@@ -64,61 +72,63 @@ def save_config(config, out_dir):
         yaml.dump(config, file)
 
 
-# def pretrain_finetune(model, src_train_loader, tar_train_loader, tar_test_loader, criterion, optimizer,
-#                       device, num_epochs):
-#     scaler = GradScaler()
-#     for epoch in range(num_epochs):
-#         model.train()
-#         running_loss = 0.0
-#
-#         pbar = tqdm(src_train_loader, desc=f'Epoch {epoch + 1}/{num_epochs}')
-#         for x, y in pbar:
-#             x = x.to(device, non_blocking=True)
-#             y = y.to(device, non_blocking=True)
-#
-#             with autocast():
-#                 optimizer.zero_grad(set_to_none=True)
-#                 y_hat = model(x)
-#                 loss = criterion(y_hat, y)
-#
-#             scaler.scale(loss).backward()
-#             scaler.step(optimizer)
-#             scaler.update()
-#
-#             running_loss += loss.item()
-#             pbar.set_postfix({'loss': f'{running_loss / len(pbar):.4f}'})
-#
-#     scaler = GradScaler()
-#     test_accuracies = []
-#
-#     for epoch in range(num_epochs):
-#         model.train()
-#         running_loss = 0.0
-#
-#         pbar = tqdm(tar_train_loader, desc=f'Epoch {epoch + 1}/{num_epochs}')
-#         for x, y in pbar:
-#             x = x.to(device, non_blocking=True)
-#             y = y.to(device, non_blocking=True)
-#
-#             with autocast():
-#                 optimizer.zero_grad(set_to_none=True)
-#                 y_hat = model(x)
-#                 loss = criterion(y_hat, y)
-#
-#             scaler.scale(loss).backward()
-#             scaler.step(optimizer)
-#             scaler.update()
-#
-#             running_loss += loss.item()
-#             pbar.set_postfix({'loss': f'{running_loss / len(pbar):.4f}'})
-#
-#         test_accuracy, test_loss = test_acc(model, tar_test_loader, criterion, device)
-#         test_accuracies.append(test_accuracy)
-#
-#     return test_accuracies
+def pretrain_finetune(model, src_train_loader, tar_train_loader, tar_test_loader, criterion, optimizer,
+                      device, num_epochs):
+    init()
+    scaler = GradScaler()
+    for epoch in range(num_epochs):
+        model.train()
+        running_loss = 0.0
+
+        pbar = tqdm(src_train_loader, desc=f'Epoch {epoch + 1}/{num_epochs}')
+        for x, y in pbar:
+            x = x.to(device, non_blocking=True)
+            y = y.to(device, non_blocking=True)
+
+            with autocast():
+                optimizer.zero_grad(set_to_none=True)
+                y_hat = model(x)
+                loss = criterion(y_hat, y)
+
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+            running_loss += loss.item()
+            pbar.set_postfix({'loss': f'{running_loss / len(pbar):.4f}'})
+
+    scaler = GradScaler()
+    test_accuracies = []
+
+    for epoch in range(num_epochs):
+        model.train()
+        running_loss = 0.0
+
+        pbar = tqdm(tar_train_loader, desc=f'Epoch {epoch + 1}/{num_epochs}')
+        for x, y in pbar:
+            x = x.to(device, non_blocking=True)
+            y = y.to(device, non_blocking=True)
+
+            with autocast():
+                optimizer.zero_grad(set_to_none=True)
+                y_hat = model(x)
+                loss = criterion(y_hat, y)
+
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+            running_loss += loss.item()
+            pbar.set_postfix({'loss': f'{running_loss / len(pbar):.4f}'})
+
+        test_accuracy, test_loss = test_acc(model, tar_test_loader, criterion, device)
+        test_accuracies.append(test_accuracy)
+
+    return test_accuracies
 
 
 def train_single(model, train_loader, test_loader, criterion, optimizer, device, num_epochs):
+    init()
     scaler = GradScaler()
     test_accuracies = []
 
@@ -222,11 +232,12 @@ def train_single(model, train_loader, test_loader, criterion, optimizer, device,
 
 
 def train_joint(model, src_train, tar_train, criterion, optimizer, device, num_epochs, tar_test):
+    init()
     scaler = GradScaler()
     test_accuracies = []
 
-    alpha_0 = 0.5
-    alpha_min = 0.01
+    alpha_0 = 0.7
+    alpha_min = 0.06
 
     T_max = 32
 
@@ -305,13 +316,8 @@ def train_joint(model, src_train, tar_train, criterion, optimizer, device, num_e
     return test_accuracies
 
 
-def one_exp(model, src_train, tar_train, criterion, optimizer, device, num_epochs, tar_test):
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-        torch.cuda.reset_peak_memory_stats()
-        torch.cuda.synchronize()
-        print("CUDA cache cleared.")
-
+def one_exp(model, src_train, tar_train, criterion, optimizer, device, num_epochs, tar_test, mode):
+    init()
     src_name = src_train.dataset.__class__.__name__
     tar_name = tar_test.dataset.__class__.__name__
 
@@ -334,14 +340,21 @@ def one_exp(model, src_train, tar_train, criterion, optimizer, device, num_epoch
     }
     save_config(config, out_dir)
 
-    acc = train_single(model, tar_train, tar_test, criterion, optimizer, device, num_epochs)
-    save_outs(acc, num_epochs, 'single_t2t', out_dir)
+    if mode == 'pre':
+        acc = pretrain_finetune(model, src_train, tar_train, tar_test, criterion, optimizer, device, num_epochs)
+        save_outs(acc, num_epochs, 'pretrain_finetune', out_dir)
 
-    acc = train_single(model, src_train, tar_test, criterion, optimizer, device, num_epochs)
-    save_outs(acc, num_epochs, 'single_s2t', out_dir)
+    elif mode == 't2t':
+        acc = train_single(model, tar_train, tar_test, criterion, optimizer, device, num_epochs)
+        save_outs(acc, num_epochs, 'single_t2t', out_dir)
 
-    acc = train_joint(model, src_train, tar_train, criterion, optimizer, device, num_epochs, tar_test)
-    save_outs(acc, num_epochs, 'joint_st2t', out_dir)
+    elif mode == 's2t':
+        acc = train_single(model, src_train, tar_test, criterion, optimizer, device, num_epochs)
+        save_outs(acc, num_epochs, 'single_s2t', out_dir)
+
+    elif mode == 'joint':
+        acc = train_joint(model, src_train, tar_train, criterion, optimizer, device, num_epochs, tar_test)
+        save_outs(acc, num_epochs, 'joint_st2t', out_dir)
 
 
 def test_acc(model, dataloader, criterion, device):

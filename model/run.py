@@ -16,20 +16,20 @@ if __name__ == '__main__':
     # mnist_train, mnist_test = get_mnist_dataloader()
     # usps_train, usps_test = get_usps_dataloader()
     # office31_train, office31_test = get_office31_loaders()
-    office_home_train, office_home_test = get_office_home_loaders()
-    src = 'Product'
-    tar = 'RealWorld'
+    office_home_train, office_home_test = get_office_home_loaders(batch_size=16)
+    src = 'Art'
+    tar = 'Clipart'
 
     model = models['office_home']
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=5e-3, momentum=0.9)
+    optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, weight_decay=1e-3)
 
     num_epochs = 100
     # one_exp(model, mnist_train, usps_train, criterion, optimizer, device, num_epochs, usps_test)
     # one_exp(model, office31_train[src], office31_test[tar], criterion, optimizer, device, num_epochs,
     #         office31_train[tar])
-    one_exp(model, office_home_train[src], office_home_test[tar], criterion, optimizer, device, num_epochs,
-            office_home_train[tar])
+    one_exp(model, office_home_train[src], office_home_train[tar], criterion, optimizer, device, num_epochs,
+            office_home_test[tar], 'joint')
