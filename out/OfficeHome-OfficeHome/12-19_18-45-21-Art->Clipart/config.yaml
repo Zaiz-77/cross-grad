@@ -1,6 +1,6 @@
 criterion: CrossEntropyLoss
 device: cuda
-lr: 0.005
+lr: 0.001
 model: OfficeModel
 num_epochs: 100
 optimizer: SGD
