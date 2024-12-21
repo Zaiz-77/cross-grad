@@ -1,0 +1,9 @@
+criterion: CrossEntropyLoss
+device: cuda
+lr: 0.0005
+model: OfficeModel
+num_epochs: 100
+optimizer: SGD
+src_train: amazon
+tar_test: dslr
+tar_train: dslr

@@ -1,9 +1,0 @@
-criterion: CrossEntropyLoss
-device: cuda
-lr: 0.005
-model: OfficeModel
-num_epochs: 20
-optimizer: SGD
-src_train: Art
-tar_test: Clipart
-tar_train: Clipart
