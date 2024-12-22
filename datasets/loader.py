@@ -7,7 +7,6 @@ from torchvision import datasets, transforms
 from datasets.office_dataset import Office31, OfficeHome
 
 data_root = '/home/wangkai/handwrite/data'
-cub_root = '/home/wangkai/crossgrad/data/CUB_200_2011'
 office31_root = '/home/wangkai/handwrite/data/OFFICE31'
 office_home_root = '/home/wangkai/handwrite/data/OfficeHome'
 

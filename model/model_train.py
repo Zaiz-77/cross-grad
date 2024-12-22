@@ -121,7 +121,7 @@ def pretrain_finetune(model, src_train_loader, tar_train_loader, tar_test_loader
             running_loss += loss.item()
             pbar.set_postfix({'loss': f'{running_loss / len(pbar):.4f}'})
 
-        test_accuracy, test_loss = test_acc(model, tar_test_loader, criterion, device)
+        test_accuracy, test_loss = test_acc(model, tar_test_loader, criterion)
         test_accuracies.append(test_accuracy)
 
     return test_accuracies
@@ -153,7 +153,7 @@ def train_single(model, train_loader, test_loader, criterion, optimizer, device,
             running_loss += loss.item()
             pbar.set_postfix({'loss': f'{running_loss / len(pbar):.4f}'})
 
-        test_accuracy, test_loss = test_acc(model, test_loader, criterion, device)
+        test_accuracy, test_loss = test_acc(model, test_loader, criterion)
         test_accuracies.append(test_accuracy)
     return test_accuracies
 
@@ -231,7 +231,7 @@ def train_single(model, train_loader, test_loader, criterion, optimizer, device,
 #     return test_accuracies
 
 
-def train_joint(model, src_train, tar_train, criterion, optimizer, device, num_epochs, tar_test):
+def train_joint(model, src_train, tar_train, cls_loss, optimizer, device, num_epochs, tar_test):
     init()
     scaler = GradScaler()
     test_accuracies = []
@@ -274,33 +274,32 @@ def train_joint(model, src_train, tar_train, criterion, optimizer, device, num_e
 
             with autocast():
                 optimizer.zero_grad(set_to_none=True)
-                src_outs = model(src_x)
-                src_loss = criterion(src_outs, src_y)
+                src_features, src_outs = model(src_x)
+                src_loss = cls_loss(src_outs, src_y)
 
-            scaler.scale(src_loss).backward(retain_graph=True)
-            src_grads = [p.grad.detach().clone() for p in model.parameters()]
+                scaler.scale(src_loss).backward(retain_graph=True)
+                src_cls_grad = [p.grad.detach().clone() for p in model.parameters()]
 
-            with autocast():
                 optimizer.zero_grad(set_to_none=True)
-                tar_outs = model(tar_x)
-                tar_loss = criterion(tar_outs, tar_y)
+                tar_features, tar_outs = model(tar_x)
+                tar_loss = cls_loss(tar_outs, tar_y)
 
-            scaler.scale(tar_loss).backward()
-            tar_grads = [p.grad.detach().clone() for p in model.parameters()]
+                scaler.scale(tar_loss).backward()
+                tar_cls_grad = [p.grad.detach().clone() for p in model.parameters()]
 
-            cos_value = compute_gradient_cosine(src_grads, tar_grads)
-            if cos_value > 0:
-                final_grads = [alpha * g1 + g2 for g1, g2 in zip(src_grads, tar_grads)]
-            else:
-                cnt += 1
-                _, v = decompose_gradient(src_grads, tar_grads)
-                final_grads = [alpha * g1 + g2 for g1, g2 in zip(v, tar_grads)]
+                cos_value = compute_gradient_cosine(src_cls_grad, tar_cls_grad)
+                if cos_value > 0:
+                    final_grads = [alpha * g1 + g2 for g1, g2 in zip(src_cls_grad, tar_cls_grad)]
+                else:
+                    cnt += 1
+                    _, v = decompose_gradient(src_cls_grad, tar_cls_grad)
+                    final_grads = [alpha * g1 + g2 for g1, g2 in zip(v, tar_cls_grad)]
 
-            for param, grad in zip(model.parameters(), final_grads):
-                param.grad = grad
+                for param, grad in zip(model.parameters(), final_grads):
+                    param.grad = grad
 
-            scaler.step(optimizer)
-            scaler.update()
+                scaler.step(optimizer)
+                scaler.update()
 
             p_bar.set_postfix({
                 'ratio': f'{100 * cnt / step_per_epoch:.2f}%',
@@ -311,12 +310,12 @@ def train_joint(model, src_train, tar_train, criterion, optimizer, device, num_e
             p_bar.update()
 
         p_bar.close()
-        test_accuracy, test_loss = test_acc(model, tar_test, criterion, device)
+        test_accuracy, test_loss = test_acc(model, tar_test, cls_loss, device)
         test_accuracies.append(test_accuracy)
     return test_accuracies
 
 
-def one_exp(model, src_train, tar_train, criterion, optimizer, device, num_epochs, tar_test, mode):
+def one_exp(model, src_train, tar_train, cls_loss, optimizer, device, num_epochs, tar_test, mode):
     init()
     src_name = src_train.dataset.__class__.__name__
     tar_name = tar_test.dataset.__class__.__name__
@@ -331,7 +330,7 @@ def one_exp(model, src_train, tar_train, criterion, optimizer, device, num_epoch
         'model': model.__class__.__name__,
         'src_train': src_train.domain,
         'tar_train': tar_train.domain,
-        'criterion': criterion.__class__.__name__,
+        'cls_loss': cls_loss.__class__.__name__,
         'optimizer': optimizer.__class__.__name__,
         'lr': optimizer.param_groups[0]['lr'],
         'device': str(device),
@@ -341,23 +340,23 @@ def one_exp(model, src_train, tar_train, criterion, optimizer, device, num_epoch
     save_config(config, out_dir)
 
     if mode == 'pre':
-        acc = pretrain_finetune(model, src_train, tar_train, tar_test, criterion, optimizer, device, num_epochs)
+        acc = pretrain_finetune(model, src_train, tar_train, tar_test, cls_loss, optimizer, device, num_epochs)
         save_outs(acc, num_epochs, 'pretrain_finetune', out_dir)
 
     elif mode == 't2t':
-        acc = train_single(model, tar_train, tar_test, criterion, optimizer, device, num_epochs)
+        acc = train_single(model, tar_train, tar_test, cls_loss, optimizer, device, num_epochs)
         save_outs(acc, num_epochs, 'single_t2t', out_dir)
 
     elif mode == 's2t':
-        acc = train_single(model, src_train, tar_test, criterion, optimizer, device, num_epochs)
+        acc = train_single(model, src_train, tar_test, cls_loss, optimizer, device, num_epochs)
         save_outs(acc, num_epochs, 'single_s2t', out_dir)
 
     elif mode == 'joint':
-        acc = train_joint(model, src_train, tar_train, criterion, optimizer, device, num_epochs, tar_test)
+        acc = train_joint(model, src_train, tar_train, cls_loss, optimizer, device, num_epochs, tar_test)
         save_outs(acc, num_epochs, 'joint_st2t', out_dir)
 
 
-def test_acc(model, dataloader, criterion, device):
+def test_acc(model, dataloader, cls_loss, device):
     model.eval()
     total_correct = 0
     total_samples = 0
@@ -369,8 +368,8 @@ def test_acc(model, dataloader, criterion, device):
             images = images.to(device, non_blocking=True)
             labels = labels.to(device, non_blocking=True)
 
-            outputs = model(images)
-            loss = criterion(outputs, labels)
+            feature, outputs = model(images)
+            loss = cls_loss(outputs, labels)
 
             _, predicted = torch.max(outputs, 1)
             batch_size = labels.size(0)
