@@ -1,0 +1,1 @@
+Best Accuracy 67.33642452344152% at epoch 21

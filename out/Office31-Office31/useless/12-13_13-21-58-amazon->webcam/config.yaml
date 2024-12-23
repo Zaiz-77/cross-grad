@@ -1,9 +1,0 @@
-criterion: CrossEntropyLoss
-device: cuda
-lr: 0.001
-model: OfficeModel
-num_epochs: 10
-optimizer: SGD
-src_train: amazon
-tar_test: webcam
-tar_train: webcam

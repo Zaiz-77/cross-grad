@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
@@ -164,7 +166,7 @@ def show_batch_data(loader, save_name, mean=None, std=None, num_rows=8, num_cols
             ax.axis('off')
 
     plt.tight_layout()
-    plt.savefig(f'{save_name}_data.png')
+    plt.savefig(f'visualdata/{save_name}_data.png')
     plt.close()
 
 

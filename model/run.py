@@ -1,7 +1,9 @@
+import itertools
+
 import torch
 from torch import nn
 
-from datasets.loader import get_office31_loaders, get_office_home_loaders, get_mnist_dataloader, get_usps_dataloader
+from datasets.loader import get_office_home_loaders, get_office31_loaders
 from model.digit_model import SimpleDigitModel
 from model.model_train import one_exp
 from model.office_model import OfficeModel
@@ -14,23 +16,15 @@ models = {
 
 
 if __name__ == '__main__':
-    # mnist_train, mnist_test = get_mnist_dataloader()
-    # usps_train, usps_test = get_usps_dataloader()
-    # office31_train, office31_test = get_office31_loaders(batch_size=16)
-    office_home_train, office_home_test = get_office_home_loaders(batch_size=16)
-    src = 'Product'
-    tar = 'Art'
-
-    model = models['office_home']
+    o_31 = ['amazon', 'dslr', 'webcam']
+    o_home = ['Art', 'Clipart', 'Product', 'RealWorld']
+    train, test = get_office_home_loaders(batch_size=16)
+    # train, test = get_office31_loaders(batch_size=16)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = model.to(device)
-
-    cls_loss = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=5e-4, momentum=0.9, weight_decay=1e-3)
-
     num_epochs = 100
-    # one_exp(model, mnist_train, usps_train, criterion, optimizer, device, num_epochs, usps_test)
-    # one_exp(model, office31_train[src], office31_train[tar], cls_loss, optimizer, device, num_epochs,
-    #         office31_test[tar], 'joint')
-    one_exp(model, office_home_train[src], office_home_test[tar], cls_loss, optimizer, device, num_epochs,
-            office_home_train[tar], 'joint')
+
+    for src, tar in itertools.permutations(o_home, 2):
+        model = OfficeModel(65).to(device)
+        optimizer = torch.optim.SGD(model.parameters(), lr=5e-4, momentum=0.9, weight_decay=1e-3)
+        cls_loss = nn.CrossEntropyLoss()
+        one_exp(model, train[src], test[tar], cls_loss, optimizer, device, num_epochs, train[tar], 'joint')
