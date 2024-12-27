@@ -21,3 +21,11 @@ def init():
         torch.cuda.reset_peak_memory_stats()
         torch.cuda.synchronize()
         print("CUDA cache cleared.")
+
+
+def get_backbone_gradients(model):
+    backbone_gradients = []
+    for name, param in model.backbone.named_parameters():
+        if param.grad is not None:
+            backbone_gradients.append(param.grad.detach().clone())
+    return backbone_gradients

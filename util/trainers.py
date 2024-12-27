@@ -1,5 +1,6 @@
 import math
 
+import torch
 from torch.cuda.amp import autocast, GradScaler
 from tqdm import tqdm
 
@@ -11,7 +12,7 @@ from util.tester import test_acc
 def pretrain_finetune(model, src_train_loader, tar_train_loader, tar_test_loader, criterion, optimizer,
                       device, num_epochs):
     init()
-    scaler = GradScaler()
+    scaler = torch.amp.GradScaler('cuda')
     for epoch in range(num_epochs):
         model.train()
         running_loss = 0.0
@@ -45,7 +46,7 @@ def pretrain_finetune(model, src_train_loader, tar_train_loader, tar_test_loader
             x = x.to(device, non_blocking=True)
             y = y.to(device, non_blocking=True)
 
-            with autocast():
+            with torch.amp.autocast('cuda'):
                 optimizer.zero_grad(set_to_none=True)
                 y_hat = model(x)
                 loss = criterion(y_hat, y)
@@ -65,7 +66,7 @@ def pretrain_finetune(model, src_train_loader, tar_train_loader, tar_test_loader
 
 def train_single(model, train_loader, test_loader, criterion, optimizer, device, num_epochs):
     init()
-    scaler = GradScaler()
+    scaler = torch.amp.GradScaler('cuda')
     test_accuracies = []
 
     for epoch in range(num_epochs):
@@ -95,7 +96,7 @@ def train_single(model, train_loader, test_loader, criterion, optimizer, device,
 
 
 def train_joint(model, src_train, tar_train, cls_loss, optimizer, device, num_epochs, tar_test):
-    scaler = GradScaler()
+    scaler = torch.amp.GradScaler('cuda')
     test_accuracies = []
 
     alpha_0 = 0.7
@@ -134,7 +135,7 @@ def train_joint(model, src_train, tar_train, cls_loss, optimizer, device, num_ep
             tar_x = tar_x.to(device, non_blocking=True)
             tar_y = tar_y.to(device, non_blocking=True)
 
-            with autocast():
+            with torch.amp.autocast('cuda'):
                 optimizer.zero_grad(set_to_none=True)
                 src_features, src_outs = model(src_x)
                 src_loss = cls_loss(src_outs, src_y)

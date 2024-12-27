@@ -1,5 +1,4 @@
 import torch
-from torch.cuda.amp import autocast
 from tqdm import tqdm
 
 
@@ -10,7 +9,7 @@ def test_acc(model, dataloader, cls_loss, device):
     total_loss = 0.0
 
     pbar = tqdm(dataloader, desc='Testing', ascii=True)
-    with torch.no_grad(), autocast():
+    with torch.no_grad(), torch.amp.autocast('cuda'):
         for images, labels in pbar:
             images = images.to(device, non_blocking=True)
             labels = labels.to(device, non_blocking=True)

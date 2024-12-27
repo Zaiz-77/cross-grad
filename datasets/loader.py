@@ -1,5 +1,3 @@
-import os
-
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
@@ -51,11 +49,24 @@ def get_usps_dataloader(batch_size=64, num_workers=8):
 
 
 def get_office31_loaders(batch_size=64, num_workers=8, train_ratio=0.8):
-    data_transforms = transforms.Compose([
-        transforms.Resize([224, 224]),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    # 数据增强变换（用于训练集）
+    train_transforms = transforms.Compose([
+        transforms.Resize([256, 256]),  # 调整大小
+        transforms.RandomResizedCrop(224),  # 随机裁剪为224x224
+        transforms.RandomHorizontalFlip(),  # 随机水平翻转
+        transforms.RandomVerticalFlip(),  # 随机垂直翻转
+        transforms.RandomRotation(30),  # 随机旋转±30度
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),  # 颜色抖动
+        transforms.RandomGrayscale(p=0.1),  # 10%的概率转换为灰度图
+        transforms.ToTensor(),  # 转换为张量
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # 归一化
+    ])
+
+    # 基础变换（用于测试集）
+    test_transforms = transforms.Compose([
+        transforms.Resize([224, 224]),  # 调整大小
+        transforms.ToTensor(),  # 转换为张量
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # 归一化
     ])
 
     domains = ['amazon', 'dslr', 'webcam']
@@ -63,13 +74,17 @@ def get_office31_loaders(batch_size=64, num_workers=8, train_ratio=0.8):
     test_loaders = {}
 
     for domain in domains:
-        dataset = Office31(office31_root, domain, data_transforms)
-        train_size = int(len(dataset) * train_ratio)
-        test_size = len(dataset) - train_size
-        train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
+        train_dataset = Office31(office31_root, domain, transform=train_transforms)
+        test_dataset = Office31(office31_root, domain, transform=test_transforms)
 
-        train_dataset.__class__.__name__ = dataset.__class__.__name__
-        test_dataset.__class__.__name__ = dataset.__class__.__name__
+        train_size = int(len(train_dataset) * train_ratio)
+        test_size = len(train_dataset) - train_size
+
+        train_dataset, _ = random_split(train_dataset, [train_size, test_size])
+        _, test_dataset = random_split(test_dataset, [train_size, test_size])
+
+        train_dataset.__class__.__name__ = train_dataset.__class__.__name__
+        test_dataset.__class__.__name__ = test_dataset.__class__.__name__
 
         train_loaders[domain] = MyLoader(
             train_dataset,
@@ -77,7 +92,8 @@ def get_office31_loaders(batch_size=64, num_workers=8, train_ratio=0.8):
             batch_size=batch_size,
             shuffle=True,
             num_workers=num_workers,
-            pin_memory=True
+            pin_memory=True,
+            drop_last=True
         )
 
         test_loaders[domain] = MyLoader(
@@ -86,7 +102,8 @@ def get_office31_loaders(batch_size=64, num_workers=8, train_ratio=0.8):
             batch_size=batch_size,
             shuffle=False,
             num_workers=num_workers,
-            pin_memory=True
+            pin_memory=True,
+            drop_last=True
         )
 
         print(f"{domain.capitalize()} - Train: {train_size}, Test: {test_size}")
@@ -95,12 +112,24 @@ def get_office31_loaders(batch_size=64, num_workers=8, train_ratio=0.8):
 
 
 def get_office_home_loaders(batch_size=32, num_workers=8, train_ratio=0.8):
-    data_transforms = transforms.Compose([
-        transforms.Resize([256, 256]),
-        transforms.RandomHorizontalFlip(),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    # 数据增强变换（用于训练集）
+    train_transforms = transforms.Compose([
+        transforms.Resize([256, 256]),  # 调整大小
+        transforms.RandomResizedCrop(224),  # 随机裁剪为224x224
+        transforms.RandomHorizontalFlip(),  # 随机水平翻转
+        transforms.RandomVerticalFlip(),  # 随机垂直翻转
+        transforms.RandomRotation(30),  # 随机旋转±30度
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),  # 颜色抖动
+        transforms.RandomGrayscale(p=0.1),  # 10%的概率转换为灰度图
+        transforms.ToTensor(),  # 转换为张量
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # 归一化
+    ])
+
+    # 基础变换（用于测试集）
+    test_transforms = transforms.Compose([
+        transforms.Resize([224, 224]),  # 调整大小
+        transforms.ToTensor(),  # 转换为张量
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # 归一化
     ])
 
     domains = ['Art', 'Clipart', 'Product', 'RealWorld']
@@ -108,15 +137,17 @@ def get_office_home_loaders(batch_size=32, num_workers=8, train_ratio=0.8):
     test_loaders = {}
 
     for domain in domains:
-        dataset = OfficeHome(office_home_root, domain, data_transforms)
+        train_dataset = OfficeHome(office_home_root, domain, transform=train_transforms)
+        test_dataset = OfficeHome(office_home_root, domain, transform=test_transforms)
 
-        train_size = int(len(dataset) * train_ratio)
-        test_size = len(dataset) - train_size
+        train_size = int(len(train_dataset) * train_ratio)
+        test_size = len(train_dataset) - train_size
 
-        train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
+        train_dataset, _ = random_split(train_dataset, [train_size, test_size])
+        _, test_dataset = random_split(test_dataset, [train_size, test_size])
 
-        train_dataset.__class__.__name__ = dataset.__class__.__name__
-        test_dataset.__class__.__name__ = dataset.__class__.__name__
+        train_dataset.__class__.__name__ = train_dataset.__class__.__name__
+        test_dataset.__class__.__name__ = test_dataset.__class__.__name__
 
         train_loaders[domain] = MyLoader(
             train_dataset,
@@ -124,7 +155,8 @@ def get_office_home_loaders(batch_size=32, num_workers=8, train_ratio=0.8):
             batch_size=batch_size,
             shuffle=True,
             num_workers=num_workers,
-            pin_memory=True
+            pin_memory=True,
+            drop_last=True
         )
 
         test_loaders[domain] = MyLoader(
@@ -133,7 +165,8 @@ def get_office_home_loaders(batch_size=32, num_workers=8, train_ratio=0.8):
             batch_size=batch_size,
             shuffle=False,
             num_workers=num_workers,
-            pin_memory=True
+            pin_memory=True,
+            drop_last=True
         )
 
         print(f"{domain.capitalize()} - Train: {train_size}, Test: {test_size}")

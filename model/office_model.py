@@ -19,22 +19,3 @@ class OfficeModel(nn.Module):
         features = self.backbone(x)
         out = self.classifier(features)
         return features, out
-
-
-# 域判别器网络
-class Discriminator(nn.Module):
-    def __init__(self, feature_dim):
-        super(Discriminator, self).__init__()
-        self.discriminator = nn.Sequential(
-            nn.Linear(feature_dim, 1024),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(1024, 1024),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(1024, 1),
-            nn.Sigmoid()
-        )
-
-    def forward(self, x):
-        return self.discriminator(x)
