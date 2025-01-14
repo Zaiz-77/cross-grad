@@ -6,7 +6,7 @@ from util.outputs import save_config, save_outs
 from util.trainers import pretrain_finetune, train_single, train_joint
 
 
-def one_exp(model, src_train, tar_train, cls_loss, optimizer, device, num_epochs, tar_test, mode):
+def one_exp(model, src_train, tar_train, cls_loss, optimizer, device, num_epochs, src_test, tar_test, mode):
     init()
     src_name = src_train.dataset.__class__.__name__
     tar_name = tar_test.dataset.__class__.__name__
@@ -38,13 +38,18 @@ def one_exp(model, src_train, tar_train, cls_loss, optimizer, device, num_epochs
         acc = train_single(model, tar_train, tar_test, cls_loss, optimizer, device, num_epochs)
         save_outs(acc, num_epochs, 'single_t2t', out_dir)
 
+    elif mode == 's2s':
+        acc = train_single(model, src_train, src_test, cls_loss, optimizer, device, num_epochs)
+        save_outs(acc, num_epochs, 'single_s2s', out_dir)
+
     elif mode == 's2t':
         acc = train_single(model, src_train, tar_test, cls_loss, optimizer, device, num_epochs)
         save_outs(acc, num_epochs, 'single_s2t', out_dir)
 
-    elif mode == 'joint':
+    elif mode == 'jointT':
         acc = train_joint(model, src_train, tar_train, cls_loss, optimizer, device, num_epochs, tar_test)
         save_outs(acc, num_epochs, 'joint_st2t', out_dir)
 
-
-
+    elif mode == 'jointS':
+        acc = train_joint(model, src_train, tar_train, cls_loss, optimizer, device, num_epochs, src_test)
+        save_outs(acc, num_epochs, 'joint_st2s', out_dir)

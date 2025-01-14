@@ -74,17 +74,17 @@ def get_office31_loaders(batch_size=64, num_workers=8, train_ratio=0.8):
     test_loaders = {}
 
     for domain in domains:
-        train_dataset = Office31(office31_root, domain, transform=train_transforms)
-        test_dataset = Office31(office31_root, domain, transform=test_transforms)
+        train = Office31(office31_root, domain, transform=train_transforms)
+        test = Office31(office31_root, domain, transform=test_transforms)
 
-        train_size = int(len(train_dataset) * train_ratio)
-        test_size = len(train_dataset) - train_size
+        train_size = int(len(train) * train_ratio)
+        test_size = len(train) - train_size
 
-        train_dataset, _ = random_split(train_dataset, [train_size, test_size])
-        _, test_dataset = random_split(test_dataset, [train_size, test_size])
+        train_dataset, _ = random_split(train, [train_size, test_size])
+        _, test_dataset = random_split(test, [train_size, test_size])
 
-        train_dataset.__class__.__name__ = train_dataset.__class__.__name__
-        test_dataset.__class__.__name__ = test_dataset.__class__.__name__
+        train_dataset.__class__.__name__ = train.__class__.__name__
+        test_dataset.__class__.__name__ = test.__class__.__name__
 
         train_loaders[domain] = MyLoader(
             train_dataset,
@@ -137,17 +137,17 @@ def get_office_home_loaders(batch_size=32, num_workers=8, train_ratio=0.8):
     test_loaders = {}
 
     for domain in domains:
-        train_dataset = OfficeHome(office_home_root, domain, transform=train_transforms)
-        test_dataset = OfficeHome(office_home_root, domain, transform=test_transforms)
+        train = OfficeHome(office_home_root, domain, transform=train_transforms)
+        test = OfficeHome(office_home_root, domain, transform=test_transforms)
 
-        train_size = int(len(train_dataset) * train_ratio)
-        test_size = len(train_dataset) - train_size
+        train_size = int(len(train) * train_ratio)
+        test_size = len(train) - train_size
 
-        train_dataset, _ = random_split(train_dataset, [train_size, test_size])
-        _, test_dataset = random_split(test_dataset, [train_size, test_size])
+        train_dataset, _ = random_split(train, [train_size, test_size])
+        _, test_dataset = random_split(test, [train_size, test_size])
 
-        train_dataset.__class__.__name__ = train_dataset.__class__.__name__
-        test_dataset.__class__.__name__ = test_dataset.__class__.__name__
+        train_dataset.__class__.__name__ = train.__class__.__name__
+        test_dataset.__class__.__name__ = test.__class__.__name__
 
         train_loaders[domain] = MyLoader(
             train_dataset,
